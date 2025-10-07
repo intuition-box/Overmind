@@ -33,10 +33,14 @@ dist-ssr
 /src/components/V19.8_refacto/
 /src/components/V19.8_Up4-XState/
 /src/components/V19.8_Up4-XState_BUp/
+/src/components/V19.8_Up4-XState_BUp2/
 /src/components/V20.0_XState/archive_Xstate_v1_HS/
 /src/components/V20.0_XState/Claude_guide/
 /src/components/V20.0_XState copy/
 /src/components/V20.001_xstate_BU/
+
+# Rapports d'analyse
+RAPPORT_*.md
 
 # Debug and test scripts
 analyze-glb.js
