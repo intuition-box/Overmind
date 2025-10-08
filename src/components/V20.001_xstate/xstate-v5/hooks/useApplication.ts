@@ -17,6 +17,7 @@ export function useApplication() {
   const sceneActor = useSelector(actorRef, (state) => state.context.sceneActor);
   const materialActor = useSelector(actorRef, (state) => state.context.materialActor);
   const revelationActor = useSelector(actorRef, (state) => state.context.revelationActor);
+  const popActor = useSelector(actorRef, (state) => state.context.popActor);
 
   return {
     actorRef,
@@ -30,6 +31,7 @@ export function useApplication() {
     effectsActor,
     sceneActor,
     materialActor,
-    revelationActor
+    revelationActor,
+    popActor
   };
 }

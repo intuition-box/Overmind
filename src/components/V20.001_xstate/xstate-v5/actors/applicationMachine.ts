@@ -8,6 +8,7 @@ import { effectsMachine } from './effects/effectsMachine';
 import { sceneMachine } from './scene/sceneMachine';
 import { materialMachine } from './material/materialMachine';
 import { revelationMachine } from './revelation/revelationMachine';
+import { popMachine } from './pop/popMachine';
 
 export interface ApplicationContext {
   // Spawned actors
@@ -19,6 +20,7 @@ export interface ApplicationContext {
   sceneActor: ActorRefFrom<typeof sceneMachine> | null;
   materialActor: ActorRefFrom<typeof materialMachine> | null;
   revelationActor: ActorRefFrom<typeof revelationMachine> | null;
+  popActor: ActorRefFrom<typeof popMachine> | null;
 }
 
 export type ApplicationEvents =
@@ -38,7 +40,8 @@ export const applicationMachine = setup({
     effects: effectsMachine,
     scene: sceneMachine,
     material: materialMachine,
-    revelation: revelationMachine
+    revelation: revelationMachine,
+    pop: popMachine
   }
 }).createMachine({
   id: 'application',
@@ -51,7 +54,8 @@ export const applicationMachine = setup({
     effectsActor: null,
     sceneActor: null,
     materialActor: null,
-    revelationActor: null
+    revelationActor: null,
+    popActor: null
   },
   states: {
     running: {
@@ -64,7 +68,8 @@ export const applicationMachine = setup({
           effectsActor: ({ spawn }) => spawn('effects', { systemId: 'effects' }),
           sceneActor: ({ spawn }) => spawn('scene', { systemId: 'scene' }),
           materialActor: ({ spawn }) => spawn('material', { systemId: 'material' }),
-          revelationActor: ({ spawn }) => spawn('revelation', { systemId: 'revelation' })
+          revelationActor: ({ spawn }) => spawn('revelation', { systemId: 'revelation' }),
+          popActor: ({ spawn }) => spawn('pop', { systemId: 'pop' })
         }),
         () => console.log('[applicationMachine] ✅ All actors spawned and running')
       ],
@@ -79,7 +84,8 @@ export const applicationMachine = setup({
             effectsActor: null,
             sceneActor: null,
             materialActor: null,
-            revelationActor: null
+            revelationActor: null,
+            popActor: null
           })
         }
       }

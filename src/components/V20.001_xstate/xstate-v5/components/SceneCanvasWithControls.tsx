@@ -26,6 +26,7 @@ export function SceneCanvasWithControls() {
     sceneActor,
     materialActor,
     revelationActor,
+    popActor,
     isRunning
   } = useApplication();
 
@@ -366,7 +367,7 @@ export function SceneCanvasWithControls() {
     const revealObjectsSet = new Set<THREE.Object3D>(); // To avoid duplicates
 
     loader.load(
-      '/models/V3_Eye-3.0.glb',
+      '/models/V4.1_Eye-1.0_T-pose.glb',
       (gltf) => {
         const model = gltf.scene;
 
@@ -492,8 +493,105 @@ export function SceneCanvasWithControls() {
           }
         }
 
+        // Initialize Pop_Sup and Pop_Inf for popMachine (eyelids)
+        if (popActor) {
+          let popSupObject: THREE.Object3D | null = null;
+          let popInfObject: THREE.Object3D | null = null;
+
+          model.traverse((child) => {
+            if (child.name === 'Pop_Sup') {
+              popSupObject = child;
+              console.log('[POP] Found Pop_Sup:', child.name, 'parent:', child.parent?.name);
+            } else if (child.name === 'Pop_Inf') {
+              popInfObject = child;
+              console.log('[POP] Found Pop_Inf:', child.name, 'parent:', child.parent?.name);
+            }
+          });
+
+          if (popSupObject && popInfObject) {
+            // Log initial state before touching anything
+            console.log('[POP] Initial rotations before init:', {
+              popSup: { x: popSupObject.rotation.x, y: popSupObject.rotation.y, z: popSupObject.rotation.z },
+              popInf: { x: popInfObject.rotation.x, y: popInfObject.rotation.y, z: popInfObject.rotation.z }
+            });
+
+            // IMPORTANT: Reset rotations to 0 (GLTF has incorrect initial rotation for Pop_Inf)
+            popSupObject.rotation.set(0, 0, 0);
+            popInfObject.rotation.set(0, 0, 0);
+            console.log('[POP] ✅ Reset rotations to (0, 0, 0)');
+
+            // Debug: Check PARENT bones rotation (Bone_4 and Bone_5)
+            if (popInfObject.parent) {
+              console.log('[POP] Pop_Inf PARENT (Bone_4) rotation:', {
+                x: popInfObject.parent.rotation.x,
+                y: popInfObject.parent.rotation.y,
+                z: popInfObject.parent.rotation.z
+              });
+              // Reset parent bone rotation too!
+              popInfObject.parent.rotation.set(0, 0, 0);
+              console.log('[POP] ✅ Reset Bone_4 rotation to (0, 0, 0)');
+            }
+
+            if (popSupObject.parent) {
+              console.log('[POP] Pop_Sup PARENT (Bone_5) rotation:', {
+                x: popSupObject.parent.rotation.x,
+                y: popSupObject.parent.rotation.y,
+                z: popSupObject.parent.rotation.z
+              });
+              // Reset parent bone rotation too!
+              popSupObject.parent.rotation.set(0, 0, 0);
+              console.log('[POP] ✅ Reset Bone_5 rotation to (0, 0, 0)');
+            }
+
+            // Debug: Check geometry
+            const popInfMesh = popInfObject as THREE.Mesh;
+            const popSupMesh = popSupObject as THREE.Mesh;
+
+            if (popInfMesh.geometry) {
+              console.log('[POP] Pop_Inf geometry info:', {
+                vertices: popInfMesh.geometry.attributes.position?.count || 0,
+                hasGeometry: !!popInfMesh.geometry,
+                geometryType: popInfMesh.geometry.type
+              });
+            } else {
+              console.warn('[POP] ⚠️ Pop_Inf has NO GEOMETRY!');
+            }
+
+            if (popSupMesh.geometry) {
+              console.log('[POP] Pop_Sup geometry info:', {
+                vertices: popSupMesh.geometry.attributes.position?.count || 0,
+                hasGeometry: !!popSupMesh.geometry,
+                geometryType: popSupMesh.geometry.type
+              });
+            }
+
+            // FIX: Disable backface culling for Pop_Inf (mesh might have inverted normals)
+            if (popInfMesh.material) {
+              const mat = popInfMesh.material as THREE.MeshStandardMaterial;
+              mat.side = THREE.DoubleSide; // Render both sides
+              mat.needsUpdate = true;
+              console.log('[POP] ✅ Set Pop_Inf material to DoubleSide');
+            }
+
+            // Also for Pop_Sup just in case
+            if (popSupMesh.material) {
+              const mat = popSupMesh.material as THREE.MeshStandardMaterial;
+              mat.side = THREE.DoubleSide;
+              mat.needsUpdate = true;
+              console.log('[POP] ✅ Set Pop_Sup material to DoubleSide');
+            }
+
+            popActor.send({ type: 'SET_SCENE', scene });
+            popActor.send({ type: 'INITIALIZE_OBJECTS', popSup: popSupObject, popInf: popInfObject });
+            console.log('[POP] ✅ Eyelid objects initialized in popMachine');
+          } else {
+            console.warn('[POP] ⚠️ Could not find Pop_Sup and/or Pop_Inf objects in model');
+          }
+        }
+
         // Setup animation mixer and play PERMANENT animations (bigArms + littleArms)
         console.log(`[SceneCanvas] Model loaded - Found ${gltf.animations.length} animations`);
+        console.log('[SceneCanvas] 📋 All animation names:', gltf.animations.map(a => a.name));
 
         if (gltf.animations.length > 0) {
           mixer = new THREE.AnimationMixer(model);
@@ -511,8 +609,11 @@ export function SceneCanvasWithControls() {
             'Little_12_Mouv', 'Little_13_Mouv'
           ];
           const EYE_RINGS = ['Anneaux_Eye_Ext_Action', 'Anneaux_Eye_Int_Action'];
+          const EYELID_ACTIONS = ['Action_pop_sup', 'Action_pop_inf'];
 
           let permanentCount = 0;
+          let popSupAction: THREE.AnimationAction | null = null;
+          let popInfAction: THREE.AnimationAction | null = null;
 
           gltf.animations.forEach((clip) => {
             const isPermanent = BIG_ARMS.includes(clip.name) || LITTLE_ARMS.includes(clip.name) || EYE_RINGS.includes(clip.name);
@@ -528,11 +629,33 @@ export function SceneCanvasWithControls() {
               permanentActionsRef.current.set(clip.name, action);
 
               permanentCount++;
-              console.log(`[SceneCanvas] ✅ Playing permanent animation: "${clip.name}"`);
+            }
+
+            // Setup eyelid animation actions (NLA Blender)
+            if (clip.name === 'Action_pop_sup') {
+              popSupAction = mixer.clipAction(clip);
+              console.log('[POP] 🎬 Found Action_pop_sup animation');
+            } else if (clip.name === 'Action_pop_inf') {
+              popInfAction = mixer.clipAction(clip);
+              console.log('[POP] 🎬 Found Action_pop_inf animation');
             }
           });
 
           console.log(`[SceneCanvas] 🎬 Started ${permanentCount} permanent animations`);
+
+          // Send animation actions to popMachine
+          if (popSupAction && popInfAction) {
+            popActor.send({ type: 'SET_ANIMATION_ACTIONS', popSupAction, popInfAction });
+            console.log('[POP] ✅ Eyelid animation actions sent to popMachine');
+
+            // Auto-start blink animation 5 seconds after model load
+            setTimeout(() => {
+              popActor.send({ type: 'START_ANIMATION' });
+              console.log('[POP] 🎬 Auto-started blink animation (5s delay)');
+            }, 5000);
+          } else {
+            console.warn('[POP] ⚠️ Could not find Action_pop_sup and/or Action_pop_inf in animations');
+          }
         } else {
           console.warn(`[SceneCanvas] ⚠️ No animations found in model - will stay in T-pose`);
         }
@@ -561,6 +684,16 @@ export function SceneCanvasWithControls() {
       const delta = clock.getDelta();
       if (mixer) {
         mixer.update(delta);
+      }
+
+      // IMPORTANT: Apply eyelid rotations AFTER mixer update to override bone animations
+      if (popActor) {
+        popActor.send({ type: 'APPLY_ROTATIONS' });
+      }
+
+      // Send TICK event to popActor for blink timing
+      if (popActor) {
+        popActor.send({ type: 'TICK', timestamp: Date.now() });
       }
 
       // Update revelation system continuously
@@ -620,7 +753,7 @@ export function SceneCanvasWithControls() {
         container.removeChild(renderer.domElement);
       }
     };
-  }, [isRunning, bloomActor, lightingActor, pbrActor, performanceActor, sceneActor, materialActor, revelationActor]);
+  }, [isRunning, bloomActor, lightingActor, pbrActor, performanceActor, sceneActor, materialActor, revelationActor, popActor]);
 
   // Zone Helper Effect - Manages visibility of trigger zone helper
   useEffect(() => {
@@ -764,6 +897,7 @@ export function SceneCanvasWithControls() {
           performanceActor={performanceActor!}
           materialActor={materialActor!}
           revelationActor={revelationActor!}
+          popActor={popActor!}
           onTriggerRingAnimation={triggerRingAnimation}
           onToggleRevealRings={toggleRevealRings}
         />

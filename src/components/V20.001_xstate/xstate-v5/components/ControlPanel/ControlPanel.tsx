@@ -9,6 +9,7 @@ import type { sceneMachine } from '../../actors/scene/sceneMachine';
 import type { performanceMonitor } from '../../actors/performance/performanceMonitor';
 import type { materialMachine } from '../../actors/material/materialMachine';
 import type { revelationMachine } from '../../actors/revelation/revelationMachine';
+import type { popMachine } from '../../actors/pop/popMachine';
 import { BloomTab } from './tabs/BloomTab';
 import { LightingTab } from './tabs/LightingTab';
 import { PBRTab } from './tabs/PBRTab';
@@ -30,6 +31,7 @@ interface ControlPanelProps {
   performanceActor: ActorRefFrom<typeof performanceMonitor>;
   materialActor: ActorRefFrom<typeof materialMachine>;
   revelationActor: ActorRefFrom<typeof revelationMachine>;
+  popActor: ActorRefFrom<typeof popMachine>;
   onTriggerRingAnimation: () => void;
   onToggleRevealRings: () => void;
 }
@@ -43,6 +45,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   performanceActor,
   materialActor,
   revelationActor,
+  popActor,
   onTriggerRingAnimation,
   onToggleRevealRings
 }) => {
