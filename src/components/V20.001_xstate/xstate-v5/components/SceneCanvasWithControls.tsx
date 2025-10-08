@@ -258,7 +258,13 @@ export function SceneCanvasWithControls() {
     // ===== RENDERER =====
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(window.devicePixelRatio);
+
+    // Cap pixel ratio to 2x for better performance
+    // Ratio 3x costs 2.25x more (9 vs 4 pixels) with minimal visual improvement
+    const pixelRatio = Math.min(window.devicePixelRatio, 2);
+    renderer.setPixelRatio(pixelRatio);
+    console.log(`[Renderer] Device pixel ratio: ${window.devicePixelRatio}x, using: ${pixelRatio}x`);
+
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
