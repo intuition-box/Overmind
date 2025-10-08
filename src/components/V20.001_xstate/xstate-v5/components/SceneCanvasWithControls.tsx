@@ -312,8 +312,8 @@ export function SceneCanvasWithControls() {
     // Adaptive bloom resolution based on pixel ratio
     // High-DPI screens (Retina, 4K) use reduced bloom resolution for better performance
     // Standard screens keep full resolution for maximum quality
-    const pixelRatio = window.devicePixelRatio;
-    const bloomResolutionScale = pixelRatio > 1 ? 0.5 : 1.0;
+    // Note: Uses device pixel ratio directly (renderer may cap it separately)
+    const bloomResolutionScale = window.devicePixelRatio > 1 ? 0.5 : 1.0;
     const bloomWidth = width * bloomResolutionScale;
     const bloomHeight = height * bloomResolutionScale;
 
@@ -326,7 +326,7 @@ export function SceneCanvasWithControls() {
     bloomPass.enabled = true;
     composer.addPass(bloomPass);
 
-    console.log(`[Bloom] Resolution: ${bloomWidth}×${bloomHeight} (scale: ${bloomResolutionScale.toFixed(1)}x, pixel ratio: ${pixelRatio}x)`);
+    console.log(`[Bloom] Resolution: ${bloomWidth}×${bloomHeight} (scale: ${bloomResolutionScale.toFixed(1)}x, device pixel ratio: ${window.devicePixelRatio}x)`);
 
     // ===== CONNECT TO XSTATE MACHINES =====
 
