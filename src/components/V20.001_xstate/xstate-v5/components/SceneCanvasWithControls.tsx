@@ -256,13 +256,17 @@ export function SceneCanvasWithControls() {
     camera.lookAt(0, 1, 0);
 
     // ===== RENDERER =====
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      powerPreference: "high-performance" // Force dedicated GPU on dual-GPU systems (Mac, laptops)
+    });
     renderer.setSize(width, height);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.7;
+    console.log('[Renderer] GPU power preference: high-performance (dedicated GPU if available)');
     container.appendChild(renderer.domElement);
 
     // ===== CONTROLS =====
