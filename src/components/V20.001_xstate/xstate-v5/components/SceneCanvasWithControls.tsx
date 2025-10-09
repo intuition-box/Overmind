@@ -253,7 +253,7 @@ export function SceneCanvasWithControls() {
 
     // ===== CAMERA =====
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.set(0, 1.5, 3);
+    camera.position.set(0, 1.5, 12);
     camera.lookAt(0, 1, 0);
 
     // ===== RENDERER =====
@@ -387,7 +387,7 @@ export function SceneCanvasWithControls() {
     const revealObjectsSet = new Set<THREE.Object3D>(); // To avoid duplicates
 
     loader.load(
-      '/models/V4.1_Overmind.glb',
+      '/models/V4.2_Overmind.glb',
       (gltf) => {
         const model = gltf.scene;
 
@@ -436,6 +436,11 @@ export function SceneCanvasWithControls() {
             // REVEAL RINGS group - collect materials with "BloomArea"
             if (materialName === REVEAL_BLOOM_MATERIAL) {
               console.log(`[REVEAL] Adding material "${materialName}" from object "${objectName}"`);
+              materialGroups.revealRings.push(child.material);
+            }
+            // BigArm bloom materials
+            else if (materialName === 'Bloom_BigArm_Sup' || materialName === 'Bloom_BigArm_Inf') {
+              console.log(`[BIGARM_BLOOM] Adding material "${materialName}" from object "${objectName}"`);
               materialGroups.revealRings.push(child.material);
             }
             // EYE_RINGS group - 2 metal rings around the eye
