@@ -18,9 +18,13 @@ export interface PopContext {
   popInfTargetAngle: number;   // Angle fermé: -43°
   popInfCurrentAngle: number;
 
-  // Animation NLA Blender
-  popSupAction: THREE.AnimationAction | null;  // Action_pop_sup
-  popInfAction: THREE.AnimationAction | null;  // Action_pop_inf
+  // Animation NLA Blender - 6 animations
+  startPopSupAction: THREE.AnimationAction | null;      // Start_pop_sup (joué une fois au démarrage)
+  startPopInfAction: THREE.AnimationAction | null;      // Start_pop_inf
+  actionPopSupAction: THREE.AnimationAction | null;     // Action_pop_sup
+  actionPopInfAction: THREE.AnimationAction | null;     // Action_pop_inf
+  suspicionPopSupAction: THREE.AnimationAction | null;  // Suspicion_pop_sup
+  suspicionPopInfAction: THREE.AnimationAction | null;  // Suspicion_pop_inf
 
   // Animation
   isAnimating: boolean;
@@ -28,6 +32,7 @@ export interface PopContext {
   minBlinkInterval: number;    // Intervalle min entre clignements (ms)
   maxBlinkInterval: number;    // Intervalle max entre clignements (ms)
   nextBlinkTime: number | null; // Timestamp du prochain clignement
+  useActionAnimation: boolean;  // true = Action, false = Suspicion (alternance)
 
   // Interpolation smooth
   blinkStartTime: number | null; // Timestamp du début du clignement
@@ -38,7 +43,16 @@ export interface PopContext {
 export type PopEvents =
   | { type: 'SET_SCENE'; scene: THREE.Scene }
   | { type: 'INITIALIZE_OBJECTS'; popSup: THREE.Object3D; popInf: THREE.Object3D }
-  | { type: 'SET_ANIMATION_ACTIONS'; popSupAction: THREE.AnimationAction; popInfAction: THREE.AnimationAction }
+  | {
+      type: 'SET_ANIMATION_ACTIONS';
+      startPopSupAction: THREE.AnimationAction;
+      startPopInfAction: THREE.AnimationAction;
+      actionPopSupAction: THREE.AnimationAction;
+      actionPopInfAction: THREE.AnimationAction;
+      suspicionPopSupAction: THREE.AnimationAction;
+      suspicionPopInfAction: THREE.AnimationAction;
+    }
+  | { type: 'PLAY_START_ANIMATION' }
 
   // Pop_Sup controls (manuel)
   | { type: 'SET_POP_SUP_START_ANGLE'; angle: number }
@@ -67,19 +81,29 @@ export const popMachine = setup({
     events: {} as PopEvents
   },
   actions: {
-    // Play NLA blink animation (fermeture)
+    // Play NLA blink animation - alterne entre Action et Suspicion
     playBlinkAnimation: ({ context }) => {
-      if (context.popSupAction && context.popInfAction) {
+      // Choisir quelle animation jouer selon useActionAnimation
+      const popSupAction = context.useActionAnimation
+        ? context.actionPopSupAction
+        : context.suspicionPopSupAction;
+      const popInfAction = context.useActionAnimation
+        ? context.actionPopInfAction
+        : context.suspicionPopInfAction;
+
+      if (popSupAction && popInfAction) {
         // Reset et joue les animations
-        context.popSupAction.reset();
-        context.popInfAction.reset();
-        context.popSupAction.setLoop(THREE.LoopOnce, 1);
-        context.popInfAction.setLoop(THREE.LoopOnce, 1);
-        context.popSupAction.clampWhenFinished = true;
-        context.popInfAction.clampWhenFinished = true;
-        context.popSupAction.play();
-        context.popInfAction.play();
-        console.log('[popMachine] 🎬 Playing blink animation (Action_pop_sup + Action_pop_inf)');
+        popSupAction.reset();
+        popInfAction.reset();
+        popSupAction.setLoop(THREE.LoopOnce, 1);
+        popInfAction.setLoop(THREE.LoopOnce, 1);
+        popSupAction.clampWhenFinished = true;
+        popInfAction.clampWhenFinished = true;
+        popSupAction.play();
+        popInfAction.play();
+
+        const animType = context.useActionAnimation ? 'Action' : 'Suspicion';
+        console.log(`[popMachine] 🎬 Playing ${animType} blink animation`);
       } else {
         console.warn('[popMachine] ⚠️ Animation actions not initialized!');
       }
@@ -87,13 +111,23 @@ export const popMachine = setup({
 
     // Stop blink animation et reset à la position ouverte
     stopBlinkAnimation: ({ context }) => {
-      if (context.popSupAction && context.popInfAction) {
-        context.popSupAction.stop();
-        context.popInfAction.stop();
-        context.popSupAction.reset();
-        context.popInfAction.reset();
-        console.log('[popMachine] 🛑 Stopped blink animation and reset to open');
-      }
+      // Arrêter toutes les animations au cas où
+      if (context.startPopSupAction) context.startPopSupAction.stop();
+      if (context.startPopInfAction) context.startPopInfAction.stop();
+      if (context.actionPopSupAction) context.actionPopSupAction.stop();
+      if (context.actionPopInfAction) context.actionPopInfAction.stop();
+      if (context.suspicionPopSupAction) context.suspicionPopSupAction.stop();
+      if (context.suspicionPopInfAction) context.suspicionPopInfAction.stop();
+
+      // Reset toutes les animations pour revenir à la position T-pose
+      if (context.startPopSupAction) context.startPopSupAction.reset();
+      if (context.startPopInfAction) context.startPopInfAction.reset();
+      if (context.actionPopSupAction) context.actionPopSupAction.reset();
+      if (context.actionPopInfAction) context.actionPopInfAction.reset();
+      if (context.suspicionPopSupAction) context.suspicionPopSupAction.reset();
+      if (context.suspicionPopInfAction) context.suspicionPopInfAction.reset();
+
+      console.log('[popMachine] 🛑 Stopped all animations and reset to T-pose');
     },
 
     // Apply Pop_Sup rotation
@@ -255,9 +289,13 @@ export const popMachine = setup({
     popInfTargetAngle: -43,
     popInfCurrentAngle: 0,
 
-    // Animation NLA defaults
-    popSupAction: null,
-    popInfAction: null,
+    // Animation NLA defaults - 6 animations
+    startPopSupAction: null,
+    startPopInfAction: null,
+    actionPopSupAction: null,
+    actionPopInfAction: null,
+    suspicionPopSupAction: null,
+    suspicionPopInfAction: null,
 
     // Animation defaults
     isAnimating: false,
@@ -265,6 +303,7 @@ export const popMachine = setup({
     minBlinkInterval: 2000,    // Min 2s entre clignements
     maxBlinkInterval: 7000,    // Max 7s entre clignements
     nextBlinkTime: null,
+    useActionAnimation: true,  // Commencer avec Action, puis alterner
 
     // Interpolation defaults
     blinkStartTime: null,
@@ -303,12 +342,42 @@ export const popMachine = setup({
     SET_ANIMATION_ACTIONS: {
       actions: [
         ({ context, event }) => {
-          context.popSupAction = event.popSupAction;
-          context.popInfAction = event.popInfAction;
-          console.log('[popMachine] 🎬 Animation actions assigned:', {
-            popSupAction: context.popSupAction?.getClip().name,
-            popInfAction: context.popInfAction?.getClip().name
+          context.startPopSupAction = event.startPopSupAction;
+          context.startPopInfAction = event.startPopInfAction;
+          context.actionPopSupAction = event.actionPopSupAction;
+          context.actionPopInfAction = event.actionPopInfAction;
+          context.suspicionPopSupAction = event.suspicionPopSupAction;
+          context.suspicionPopInfAction = event.suspicionPopInfAction;
+          console.log('[popMachine] 🎬 All 6 animation actions assigned:', {
+            startPopSup: context.startPopSupAction?.getClip().name,
+            startPopInf: context.startPopInfAction?.getClip().name,
+            actionPopSup: context.actionPopSupAction?.getClip().name,
+            actionPopInf: context.actionPopInfAction?.getClip().name,
+            suspicionPopSup: context.suspicionPopSupAction?.getClip().name,
+            suspicionPopInf: context.suspicionPopInfAction?.getClip().name
           });
+        }
+      ]
+    },
+
+    PLAY_START_ANIMATION: {
+      actions: [
+        ({ context }) => {
+          if (context.startPopSupAction && context.startPopInfAction) {
+            // Jouer l'animation Start une seule fois SANS clampWhenFinished
+            // pour que les paupières reviennent à T-pose après
+            context.startPopSupAction.reset();
+            context.startPopInfAction.reset();
+            context.startPopSupAction.setLoop(THREE.LoopOnce, 1);
+            context.startPopInfAction.setLoop(THREE.LoopOnce, 1);
+            context.startPopSupAction.clampWhenFinished = false; // Important: retour à T-pose
+            context.startPopInfAction.clampWhenFinished = false;
+            context.startPopSupAction.play();
+            context.startPopInfAction.play();
+            console.log('[popMachine] 🎬 Playing Start animation (once, will reset to T-pose)');
+          } else {
+            console.warn('[popMachine] ⚠️ Start animation actions not initialized!');
+          }
         }
       ]
     },
@@ -449,11 +518,15 @@ export const popMachine = setup({
                 // Check if animation complete and transition
                 raise(({ context }) => {
                   if (!context.blinkStartTime) return { type: 'NOOP' };
-                  const elapsed = Date.now() - context.blinkStartTime;
+
+                  // Vérifier quelle animation est en cours
+                  const popSupAction = context.useActionAnimation
+                    ? context.actionPopSupAction
+                    : context.suspicionPopSupAction;
 
                   // L'animation NLA dure le temps défini dans Blender
-                  // On attend que l'animation soit terminée (vérifier avec popSupAction.isRunning())
-                  if (context.popSupAction && !context.popSupAction.isRunning()) {
+                  // On attend que l'animation soit terminée (vérifier avec isRunning())
+                  if (popSupAction && !popSupAction.isRunning()) {
                     return { type: 'BLINK_CLOSE_DONE' };
                   }
                   return { type: 'NOOP' };
@@ -496,9 +569,14 @@ export const popMachine = setup({
               actions: [
                 assign({
                   blinkPhase: null,
-                  blinkStartTime: null
+                  blinkStartTime: null,
+                  // Alterner entre Action et Suspicion pour le prochain clignement
+                  useActionAnimation: ({ context }) => !context.useActionAnimation
                 }),
-                () => console.log('[popMachine] ⏱️ Back to waiting')
+                ({ context }) => {
+                  const nextAnim = context.useActionAnimation ? 'Action' : 'Suspicion';
+                  console.log(`[popMachine] ⏱️ Back to waiting - Next animation: ${nextAnim}`);
+                }
               ]
             }
           }
