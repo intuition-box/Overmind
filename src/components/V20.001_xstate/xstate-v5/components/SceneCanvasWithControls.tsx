@@ -387,7 +387,7 @@ export function SceneCanvasWithControls() {
     const revealObjectsSet = new Set<THREE.Object3D>(); // To avoid duplicates
 
     loader.load(
-      '/models/V4.1_Eye-1.0_T-pose.glb',
+      '/models/V4.1_Overmind.glb',
       (gltf) => {
         const model = gltf.scene;
 
@@ -629,11 +629,15 @@ export function SceneCanvasWithControls() {
             'Little_12_Mouv', 'Little_13_Mouv'
           ];
           const EYE_RINGS = ['Anneaux_Eye_Ext_Action', 'Anneaux_Eye_Int_Action'];
-          const EYELID_ACTIONS = ['Action_pop_sup', 'Action_pop_inf'];
+          const EYELID_ACTIONS = ['Action_pop_sup', 'Action_pop_inf', 'Suspicion_pop_sup', 'Suspicion_pop_inf'];
 
           let permanentCount = 0;
-          let popSupAction: THREE.AnimationAction | null = null;
-          let popInfAction: THREE.AnimationAction | null = null;
+          let startPopSupAction: THREE.AnimationAction | null = null;
+          let startPopInfAction: THREE.AnimationAction | null = null;
+          let actionPopSupAction: THREE.AnimationAction | null = null;
+          let actionPopInfAction: THREE.AnimationAction | null = null;
+          let suspicionPopSupAction: THREE.AnimationAction | null = null;
+          let suspicionPopInfAction: THREE.AnimationAction | null = null;
 
           gltf.animations.forEach((clip) => {
             const isPermanent = BIG_ARMS.includes(clip.name) || LITTLE_ARMS.includes(clip.name) || EYE_RINGS.includes(clip.name);
@@ -651,30 +655,60 @@ export function SceneCanvasWithControls() {
               permanentCount++;
             }
 
-            // Setup eyelid animation actions (NLA Blender)
-            if (clip.name === 'Action_pop_sup') {
-              popSupAction = mixer.clipAction(clip);
+            // Setup eyelid animation actions (NLA Blender) - 6 animations
+            if (clip.name === 'Start_pop_sup') {
+              startPopSupAction = mixer.clipAction(clip);
+              console.log('[POP] 🎬 Found Start_pop_sup animation');
+            } else if (clip.name === 'Start_pop_inf') {
+              startPopInfAction = mixer.clipAction(clip);
+              console.log('[POP] 🎬 Found Start_pop_inf animation');
+            } else if (clip.name === 'Action_pop_sup') {
+              actionPopSupAction = mixer.clipAction(clip);
               console.log('[POP] 🎬 Found Action_pop_sup animation');
             } else if (clip.name === 'Action_pop_inf') {
-              popInfAction = mixer.clipAction(clip);
+              actionPopInfAction = mixer.clipAction(clip);
               console.log('[POP] 🎬 Found Action_pop_inf animation');
+            } else if (clip.name === 'Suspicion_pop_sup') {
+              suspicionPopSupAction = mixer.clipAction(clip);
+              console.log('[POP] 🎬 Found Suspicion_pop_sup animation');
+            } else if (clip.name === 'Suspicion_pop_inf') {
+              suspicionPopInfAction = mixer.clipAction(clip);
+              console.log('[POP] 🎬 Found Suspicion_pop_inf animation');
             }
           });
 
           console.log(`[SceneCanvas] 🎬 Started ${permanentCount} permanent animations`);
 
-          // Send animation actions to popMachine
-          if (popSupAction && popInfAction) {
-            popActor.send({ type: 'SET_ANIMATION_ACTIONS', popSupAction, popInfAction });
-            console.log('[POP] ✅ Eyelid animation actions sent to popMachine');
+          // Send animation actions to popMachine (all 6 animations)
+          if (startPopSupAction && startPopInfAction && actionPopSupAction && actionPopInfAction && suspicionPopSupAction && suspicionPopInfAction) {
+            popActor.send({
+              type: 'SET_ANIMATION_ACTIONS',
+              startPopSupAction,
+              startPopInfAction,
+              actionPopSupAction,
+              actionPopInfAction,
+              suspicionPopSupAction,
+              suspicionPopInfAction
+            });
+            console.log('[POP] ✅ All 6 eyelid animation actions sent to popMachine');
 
-            // Auto-start blink animation 5 seconds after model load
+            // Play Start animation immediately, then auto-start cyclic animations after 5 seconds
+            popActor.send({ type: 'PLAY_START_ANIMATION' });
+            console.log('[POP] 🎬 Playing Start animation on page load');
+
             setTimeout(() => {
               popActor.send({ type: 'START_ANIMATION' });
-              console.log('[POP] 🎬 Auto-started blink animation (5s delay)');
+              console.log('[POP] 🎬 Auto-started cyclic blink animation (5s after Start)');
             }, 5000);
           } else {
-            console.warn('[POP] ⚠️ Could not find Action_pop_sup and/or Action_pop_inf in animations');
+            console.warn('[POP] ⚠️ Could not find all 6 eyelid animations:', {
+              startPopSup: !!startPopSupAction,
+              startPopInf: !!startPopInfAction,
+              actionPopSup: !!actionPopSupAction,
+              actionPopInf: !!actionPopInfAction,
+              suspicionPopSup: !!suspicionPopSupAction,
+              suspicionPopInf: !!suspicionPopInfAction
+            });
           }
         } else {
           console.warn(`[SceneCanvas] ⚠️ No animations found in model - will stay in T-pose`);
